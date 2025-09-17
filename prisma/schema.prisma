@@ -1,0 +1,193 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("STAFF")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  actorUserId Int
+  action      String
+  entity      String
+  entityId    Int
+  data        Json?
+  createdAt   DateTime @default(now())
+}
+
+model Building {
+  id        Int      @id @default(autoincrement())
+  name      String
+  rooms     Room[]
+  createdAt DateTime @default(now())
+}
+
+model RoomType {
+  id             Int     @id @default(autoincrement())
+  name           String
+  description    String?
+  defaultRent    Decimal @db.Decimal(10, 2)
+  defaultDeposit Decimal @db.Decimal(10, 2)
+  rooms          Room[]
+}
+
+model Room {
+  id         Int        @id @default(autoincrement())
+  buildingId Int
+  building   Building   @relation(fields: [buildingId], references: [id])
+  floor      Int
+  number     String
+  typeId     Int?
+  type       RoomType?  @relation(fields: [typeId], references: [id])
+  baseRent   Decimal    @db.Decimal(10, 2)
+  status     String     @default("VACANT")
+  remark     String?
+  contracts  Contract[]
+
+  @@unique([buildingId, number])
+}
+
+model Tenant {
+  id        Int                @id @default(autoincrement())
+  code      String             @unique
+  fullName  String
+  phone     String?
+  email     String?
+  idCard    String?
+  address   String?
+  contracts Contract[]
+  coTenants ContractCoTenant[]
+  createdAt DateTime           @default(now())
+}
+
+model Contract {
+  id               Int                @id @default(autoincrement())
+  roomId           Int
+  room             Room               @relation(fields: [roomId], references: [id])
+  tenantId         Int
+  tenant           Tenant             @relation(fields: [tenantId], references: [id])
+  status           String             @default("DRAFT")
+  startDate        DateTime
+  endDate          DateTime?
+  baseRent         Decimal            @db.Decimal(10, 2)
+  deposit          Decimal            @db.Decimal(10, 2)
+  waterTariffId    Int?
+  waterTariff      Tariff?            @relation("WaterTariff", fields: [waterTariffId], references: [id])
+  electricTariffId Int?
+  electricTariff   Tariff?            @relation("ElectricTariff", fields: [electricTariffId], references: [id])
+  waterStart       Decimal            @db.Decimal(10, 2)
+  electricStart    Decimal            @db.Decimal(10, 2)
+  meterReadings    MeterReading[]
+  invoices         Invoice[]
+  coTenants        ContractCoTenant[]
+  createdAt        DateTime           @default(now())
+}
+
+model ContractCoTenant {
+  contractId Int
+  tenantId   Int
+  contract   Contract @relation(fields: [contractId], references: [id])
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@id([contractId, tenantId])
+}
+
+model Tariff {
+  id                Int        @id @default(autoincrement())
+  type              String
+  calcType          String
+  unitPrice         Decimal?   @db.Decimal(10, 4)
+  minCharge         Decimal?   @db.Decimal(10, 2)
+  serviceFee        Decimal?   @db.Decimal(10, 2)
+  tiers             Json?
+  // relations (named)
+  waterContracts    Contract[] @relation("WaterTariff")
+  electricContracts Contract[] @relation("ElectricTariff")
+}
+
+model BillingCycle {
+  id       Int            @id @default(autoincrement())
+  year     Int
+  month    Int
+  dueDate  DateTime
+  status   String         @default("OPEN")
+  invoices Invoice[]
+  readings MeterReading[]
+
+  @@unique([year, month])
+}
+
+model MeterReading {
+  id         Int          @id @default(autoincrement())
+  contractId Int
+  contract   Contract     @relation(fields: [contractId], references: [id])
+  cycleId    Int
+  cycle      BillingCycle @relation(fields: [cycleId], references: [id])
+  type       String
+  prevValue  Decimal      @db.Decimal(10, 2)
+  currValue  Decimal      @db.Decimal(10, 2)
+  usage      Decimal      @db.Decimal(10, 2)
+  amount     Decimal      @db.Decimal(10, 2)
+  note       String?
+  createdAt  DateTime     @default(now())
+
+  @@unique([contractId, cycleId, type])
+}
+
+model Invoice {
+  id             Int           @id @default(autoincrement())
+  contractId     Int
+  contract       Contract      @relation(fields: [contractId], references: [id])
+  cycleId        Int
+  cycle          BillingCycle  @relation(fields: [cycleId], references: [id])
+  code           String        @unique
+  issueDate      DateTime      @default(now())
+  status         String        @default("DRAFT")
+  total          Decimal       @db.Decimal(12, 2)
+  roomSnapshot   Json
+  tenantSnapshot Json
+  items          InvoiceItem[]
+  payments       Payment[]
+
+  @@index([cycleId])
+}
+
+model InvoiceItem {
+  id        Int     @id @default(autoincrement())
+  invoiceId Int
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+  type      String
+  qty       Decimal @default(1) @db.Decimal(10, 2)
+  unitPrice Decimal @db.Decimal(10, 2)
+  amount    Decimal @db.Decimal(10, 2)
+  meta      Json?
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  invoiceId Int
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  method    String
+  paidAt    DateTime @default(now())
+  amount    Decimal  @db.Decimal(12, 2)
+  ref       String?
+  note      String?
+}

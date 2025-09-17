@@ -15,11 +15,7 @@ export default function MainMenu({ className }: { className?: string }) {
         <MenuTitle />
       </header>
       <ul className="py-4 grow">
-        <MenuItem href="/dashboard">My dashboard</MenuItem>
-        <MenuItem href="/dashboard/teams">Teams</MenuItem>
-        <MenuItem href="/dashboard/employees">Employees</MenuItem>
-        <MenuItem href="/dashboard/account">Account</MenuItem>
-        <MenuItem href="/dashboard/settings">Settings</MenuItem>
+        <MenuItem href="/rooms">จัดการห้องพัก</MenuItem>
       </ul>
       <footer className="flex items-center gap-2 ">
         <Avatar>
