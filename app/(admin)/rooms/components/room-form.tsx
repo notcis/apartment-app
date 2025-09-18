@@ -1,18 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -21,48 +9,50 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { createRoom, updateRoom } from "@/actions/rooms.action";
-import { RoomInput, roomSchema } from "@/lib/validators";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { CREATE_ROOM_DEFAULT_VALUES } from "@/lib/constants";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { number, z } from "zod";
+
+const formSchema = z.object({
+  buildingId: z.number().min(1, { message: "Building is required" }),
+  floor: z.number().min(1, { message: "Floor is required" }),
+  number: z.string().min(1, { message: "Room number is required" }),
+  typeId: z.number().min(1, { message: "Room type is required" }),
+  baseRent: z.number().min(0),
+  status: z.string().min(1, { message: "Status is required" }),
+  remark: z.string().optional(),
+});
 
 export default function RoomForm({
-  mode,
-  defaults,
   buildings,
   types,
+  mode,
   id,
 }: {
-  mode: "create" | "edit";
-  defaults?: Partial<RoomInput & { status: RoomInput["status"] }>;
   buildings: { id: number; name: string }[];
   types: { id: number; name: string }[];
+  mode: "create" | "edit";
   id?: number;
 }) {
-  const form = useForm<RoomInput>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(roomSchema) as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    defaultValues: defaults as any,
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: mode === "create" ? CREATE_ROOM_DEFAULT_VALUES : undefined,
   });
-  const router = useRouter();
 
-  async function onSubmit(values: RoomInput) {
-    if (mode === "create") {
-      const res = await createRoom(values);
-      if (!res.success) {
-        toast.error(res.message);
-        return;
-      }
-    } else {
-      const res = await updateRoom(id!, values);
-      if (!res.success) {
-        toast.error(res.message);
-        return;
-      }
-    }
-    toast.success("บันทึกสำเร็จ");
-    router.push("/(admin)/rooms");
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    // Do something with the form values.
+    // ✅ This will be type-safe and validated.
+    console.log(values);
   }
 
   return (
@@ -106,7 +96,11 @@ export default function RoomForm({
             <FormItem>
               <FormLabel>ชั้น</FormLabel>
               <FormControl>
-                <Input type="number" {...field} />
+                <Input
+                  type="number"
+                  {...field}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -162,7 +156,12 @@ export default function RoomForm({
             <FormItem>
               <FormLabel>ค่าเช่าพื้นฐาน (฿/เดือน)</FormLabel>
               <FormControl>
-                <Input type="number" step="0.01" {...field} />
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...field}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -200,7 +199,7 @@ export default function RoomForm({
             <FormItem className="md:col-span-2">
               <FormLabel>หมายเหตุ</FormLabel>
               <FormControl>
-                <Textarea rows={3} {...field} value={field.value ?? ""} />
+                <Textarea rows={3} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

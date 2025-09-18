@@ -34,3 +34,17 @@ export async function deleteRoom(id: number) {
   revalidatePath("/(admin)/rooms");
   return { ok: true };
 }
+
+export const getBuildingsAndRoomTypes = async () => {
+  const [buildings, types] = await Promise.all([
+    prisma.building.findMany(),
+    prisma.roomType.findMany(),
+  ]);
+
+  const convertedTypes = types.map((type) => ({
+    ...type,
+    defaultRent: Number(type.defaultRent),
+    defaultDeposit: Number(type.defaultDeposit),
+  }));
+  return { buildings, types: convertedTypes };
+};
